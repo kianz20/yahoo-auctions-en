@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Yahoo Auctions in English</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#/">Yahoo Auctions <span>in English</span></a>
+      <form id="search" class="search" role="search">
+        <input id="q" type="search" name="q" autocomplete="off" aria-label="Search listings"
+               placeholder="Search in English, or paste a Yahoo auction link">
+        <button type="submit">Search</button>
+      </form>
+    </div>
+  </header>
+  <div id="translator-banner" class="banner" hidden></div>
+  <div id="rate-banner" class="banner banner-warn" hidden></div>
+  <main id="view"></main>
+  <footer class="foot">
+    <p id="rate-line"></p>
+    <p>Listings from Yahoo! Auctions Japan, translated by your browser's on-device translator. Not affiliated with Yahoo. <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">Rates by Exchange Rate API</a>.</p>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>
