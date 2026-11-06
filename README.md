@@ -2,7 +2,19 @@
 
 Browse Yahoo! Auctions Japan in English with prices in NZD. Runs only on your computer.
 
-## Run it
+## Download (Windows)
+
+You need [Google Chrome](https://www.google.com/chrome/). Nothing else to install.
+
+1. Download `yahoo-auctions-en-windows.zip` from the [latest release](https://github.com/kianz20/yahoo-auctions-en/releases/latest).
+2. Right-click the zip and choose **Extract All**.
+3. Open the new folder and double-click `start`.
+4. If Windows says it protected your PC, click **More info**, then **Run anyway**.
+5. In the page that opens, click **Turn on** in the banner, then again for the second language pack.
+
+Keep the black window open while you browse. Closing it stops the app.
+
+## Run from source
 
 Double-click `start.bat`, or run `node server.js` and open <http://localhost:3210> in Chrome.
 To use a different port, set the `PORT` environment variable.
