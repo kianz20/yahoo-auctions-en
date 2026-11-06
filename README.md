@@ -1,6 +1,6 @@
 # Yahoo Auctions in English
 
-Browse Yahoo! Auctions Japan in English with prices in NZD. Runs only on your computer.
+Browse Yahoo! Auctions Japan in English with prices in your currency. Runs only on your computer.
 
 ## Download (Windows)
 
@@ -29,7 +29,8 @@ To reset it, close that window and delete the folder.
 
 - Search in English. Your words are translated to Japanese for Yahoo, and the Japanese query is shown so you can check it.
 - Paste a Yahoo auction link or ID into the search box to open that listing.
-- Filter by NZD price, listing type and condition, and sort by things like ending soonest.
+- Pick your currency at the top of the page. It starts on NZD and remembers your choice.
+- Filter by price, listing type and condition, and sort by things like ending soonest.
 
 ## How it works
 
@@ -37,7 +38,7 @@ To reset it, close that window and delete the folder.
 | --- | --- |
 | Listings | `server.js` reads the JSON embedded in Yahoo's pages, cached for 60 seconds |
 | Translation | Chrome's on-device `Translator` API, in the browser |
-| NZD rate | [open.er-api.com](https://www.exchangerate-api.com), refreshed every 6 hours and saved in `.cache/` |
+| Exchange rates | [open.er-api.com](https://www.exchangerate-api.com), refreshed every 6 hours and saved in `.cache/` |
 
 ## Limits
 

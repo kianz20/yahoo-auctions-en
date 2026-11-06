@@ -230,16 +230,18 @@ function sanitizeHtml(html) {
 // ---- Exchange rate -------------------------------------------------------
 
 let rate = null;
-try { rate = JSON.parse(fs.readFileSync(RATE_FILE, 'utf8')); } catch { /* first run */ }
+try {
+  rate = JSON.parse(fs.readFileSync(RATE_FILE, 'utf8'));
+  if (!rate.rates) rate = null; // Saved by an older version that only kept NZD.
+} catch { /* first run */ }
 
 async function getRate() {
   if (rate && Date.now() - rate.fetchedAt < RATE_TTL) return rate;
   try {
     const res = await fetch('https://open.er-api.com/v6/latest/JPY', { signal: AbortSignal.timeout(10_000) });
     const data = await res.json();
-    const nzdPerJpy = data?.rates?.NZD;
-    if (data?.result !== 'success' || !(nzdPerJpy > 0)) throw new Error('bad response');
-    rate = { nzdPerJpy, updated: data.time_last_update_utc, fetchedAt: Date.now() };
+    if (data?.result !== 'success' || !(data.rates?.USD > 0)) throw new Error('bad response');
+    rate = { rates: data.rates, updated: data.time_last_update_utc, fetchedAt: Date.now() };
     fs.mkdirSync(path.dirname(RATE_FILE), { recursive: true });
     fs.writeFileSync(RATE_FILE, JSON.stringify(rate));
     return rate;

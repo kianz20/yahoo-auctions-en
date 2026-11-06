@@ -40,13 +40,59 @@ const RETURNS_NOTES = {
 
 // ---- Currency ------------------------------------------------------------
 
+const DEFAULT_CURRENCY = 'NZD';
+const POPULAR_CURRENCIES = ['NZD', 'AUD', 'USD', 'GBP', 'EUR', 'CAD', 'SGD', 'HKD', 'TWD', 'KRW', 'CNY', 'THB', 'PHP', 'MYR', 'INR'];
+const currencyNames = new Intl.DisplayNames(['en'], { type: 'currency', fallback: 'none' });
+const picker = $('#currency');
+
 let rate = null;
+let currency = DEFAULT_CURRENCY;
+try { currency = localStorage.getItem('currency') || DEFAULT_CURRENCY; } catch { /* Storage blocked, so use the default. */ }
+
 const loadRate = api('/api/rate').then((r) => {
   rate = r;
-  const updated = new Date(r.updated).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
-  $('#rate-line').textContent = `¥1,000 ≈ NZ$${(r.nzdPerJpy * 1000).toFixed(2)} (mid-market rate from ${updated}). Your card or proxy service will use a slightly different rate.`;
-  if (r.stale) showRateBanner(`Couldn't refresh the exchange rate, so NZD prices use the last known rate from ${updated}.`);
+  buildCurrencyPicker();
+  showRateLine();
+  if (r.stale) showRateBanner(`Couldn't refresh the exchange rate, so prices use the last known rate from ${rateDate()}.`);
 }).catch(() => showRateBanner("Couldn't get an exchange rate, so prices are shown in yen only."));
+
+function buildCurrencyPicker() {
+  const known = Object.keys(rate.rates).filter((code) => /^[A-Z]{3}$/.test(code) && currencyNames.of(code)).sort();
+  if (!known.includes(currency)) currency = DEFAULT_CURRENCY;
+  const popular = POPULAR_CURRENCIES.filter((code) => known.includes(code));
+  const others = known.filter((code) => !popular.includes(code));
+  const option = (code) => `<option value="${code}"${code === currency ? ' selected' : ''}>${code} – ${esc(currencyNames.of(code))}</option>`;
+  picker.innerHTML = `<optgroup label="Popular">${popular.map(option).join('')}</optgroup>
+    <optgroup label="Other currencies">${others.map(option).join('')}</optgroup>`;
+  picker.hidden = false;
+}
+
+picker.addEventListener('change', () => {
+  const previous = rate.rates[currency];
+  currency = picker.value;
+  try { localStorage.setItem('currency', currency); } catch { /* It just won't be remembered. */ }
+  showRateLine();
+
+  // Keep a price filter at the same real amount, rather than reading its number in the new currency.
+  const [path, query = ''] = location.hash.slice(1).split('?');
+  const params = new URLSearchParams(query);
+  let filterMoved = false;
+  for (const key of ['min', 'max']) {
+    const amount = Number(params.get(key));
+    if (path === '/search' && amount > 0) {
+      params.set(key, Math.max(1, Math.round(amount / previous * rate.rates[currency])));
+      filterMoved = true;
+    }
+  }
+  if (filterMoved) location.hash = searchHash(params);
+  else route();
+});
+
+const rateDate = () => new Date(rate.updated).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+function showRateLine() {
+  $('#rate-line').textContent = currency === 'JPY' ? 'Prices are shown in yen.'
+    : `¥1,000 ≈ ${converted(1000)} (mid-market rate from ${rateDate()}). Your card or proxy service will use a slightly different rate.`;
+}
 
 function showRateBanner(text) {
   const el = $('#rate-banner');
@@ -55,13 +101,17 @@ function showRateBanner(text) {
 }
 
 const yen = (n) => `¥${Math.round(n).toLocaleString('en-NZ')}`;
-function nzd(jpy) {
-  const v = jpy * rate.nzdPerJpy;
-  // Cents matter on cheap items, and are just noise on expensive ones.
-  return `NZ$${v.toLocaleString('en-NZ', v >= 100 ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// en-GB labels each dollar distinctly (NZ$, US$, A$), so a price is never ambiguous.
+const currencyFormat = (digits) => new Intl.NumberFormat('en-GB', { style: 'currency', currency, ...(digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits }) });
+function converted(jpy) {
+  const v = jpy * rate.rates[currency];
+  // Cents matter on cheap items, and are just noise on expensive ones. Some currencies have none.
+  return currencyFormat(v >= 100 ? 0 : currencyFormat().resolvedOptions().maximumFractionDigits).format(v);
 }
-const money = (jpy) => (rate ? nzd(jpy) : yen(jpy));
-const moneySub = (jpy) => (rate ? yen(jpy) : '');
+const showsConverted = () => rate && currency !== 'JPY';
+const money = (jpy) => (showsConverted() ? converted(jpy) : yen(jpy));
+const moneySub = (jpy) => (showsConverted() ? yen(jpy) : '');
+const currencySymbol = () => (currency === 'JPY' ? '¥' : currencyFormat().formatToParts(0).find((part) => part.type === 'currency').value);
 
 // ---- Translation (Chrome's on-device Translator API) ---------------------
 
@@ -294,7 +344,7 @@ function renderHome() {
   document.title = 'Yahoo Auctions in English';
   view.innerHTML = `
     <section class="home">
-      <h1>Browse Japan's biggest auction site in English, priced in NZ dollars.</h1>
+      <h1>Browse Japan's biggest auction site in English, priced in your currency.</h1>
       <p>Search in English above, paste any Yahoo auction link, or start with a category.</p>
       <div class="cat-grid">
         ${ROOT_CATEGORIES.map(([id, name]) => `<a href="#/search?cat=${id}">${esc(name)}</a>`).join('')}
@@ -333,8 +383,8 @@ async function renderSearch(params) {
   if (yahooQuery) req.set('p', yahooQuery);
   for (const key of ['cat', 'sort', 'type', 'cond', 'free', 'page']) if (params.get(key)) req.set(key, params.get(key));
   if (rate) {
-    if (Number(params.get('min')) > 0) req.set('min', Math.floor(params.get('min') / rate.nzdPerJpy));
-    if (Number(params.get('max')) > 0) req.set('max', Math.ceil(params.get('max') / rate.nzdPerJpy));
+    if (Number(params.get('min')) > 0) req.set('min', Math.floor(params.get('min') / rate.rates[currency]));
+    if (Number(params.get('max')) > 0) req.set('max', Math.ceil(params.get('max') / rate.rates[currency]));
   }
 
   let data;
@@ -378,8 +428,8 @@ async function renderSearch(params) {
         <select name="type" aria-label="Listing type">${options(TYPE_OPTIONS, params.get('type'))}</select>
         <select name="cond" aria-label="Condition">${options(COND_OPTIONS, params.get('cond'))}</select>
         ${rate ? `<span class="price-range">
-          <input name="min" type="number" min="0" inputmode="numeric" placeholder="Min NZ$" aria-label="Minimum price in NZ dollars" value="${esc(params.get('min'))}">
-          <input name="max" type="number" min="0" inputmode="numeric" placeholder="Max NZ$" aria-label="Maximum price in NZ dollars" value="${esc(params.get('max'))}">
+          <input name="min" type="number" min="0" inputmode="numeric" placeholder="Min ${esc(currencySymbol())}" aria-label="Minimum price in ${esc(currencyNames.of(currency))}" value="${esc(params.get('min'))}">
+          <input name="max" type="number" min="0" inputmode="numeric" placeholder="Max ${esc(currencySymbol())}" aria-label="Maximum price in ${esc(currencyNames.of(currency))}" value="${esc(params.get('max'))}">
         </span>` : ''}
         <label class="check"><input type="checkbox" name="free" value="1"${params.get('free') === '1' ? ' checked' : ''}> Free shipping in Japan</label>
       </form>
@@ -499,10 +549,10 @@ async function renderItem(id) {
             <a class="button" href="${esc(it.url)}" target="_blank" rel="noreferrer">Open on Yahoo</a>
           </p>
           <div class="buy-note">
-            <h2>Buying from New Zealand</h2>
+            <h2>Buying from outside Japan</h2>
             <p>Bidding on Yahoo directly generally needs a Japanese account, and most sellers only ship within Japan. The usual route is a proxy service such as Buyee or ZenMarket: give them this auction ID and they bid and forward it to you.</p>
             <p class="copy-row"><code>${esc(it.id)}</code> <button id="copy-id" type="button">Copy ID</button></p>
-            <p class="dim">NZD is a straight conversion. It doesn't include proxy fees, shipping, or any NZ GST or duty.</p>
+            <p class="dim">Converted prices are a straight conversion. They don't include proxy fees, shipping, or any import tax or duty.</p>
           </div>
         </div>
       </div>

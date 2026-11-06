@@ -57,6 +57,7 @@ img { max-width: 100%; }
   padding: 9px 18px; border: 0; cursor: pointer; font-weight: 600;
   background: var(--accent); color: var(--accent-ink); border-radius: 0 var(--radius) var(--radius) 0;
 }
+.currency { flex: none; width: 190px; max-width: 100%; padding: 9px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
 
 /* Banners */
 .banner { padding: 10px 16px; background: var(--soft); text-align: center; }
